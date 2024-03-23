@@ -2,11 +2,15 @@ package patoes.bet.patoes.bet.controller;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import patoes.bet.patoes.bet.dto.request.*;
+import patoes.bet.patoes.bet.dto.response.ListUsuarioResponseDTO;
 import patoes.bet.patoes.bet.dto.response.UsuarioResponseDTO;
 import patoes.bet.patoes.bet.model.UsuarioModel;
 import patoes.bet.patoes.bet.service.UsuarioService;
@@ -27,18 +31,18 @@ public class UsuarioController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> listarUsuarios(){
-        return new ResponseEntity<>(converterEmListaResponseUSuario(usuarioService.listarUsuarios()), HttpStatus.OK);
+    public ResponseEntity<?> listarUsuarios(Pageable pageable){
+        return new ResponseEntity<>(converterEmListaPaginadaDeResponseDTO(usuarioService.listarUsuarios(), pageable), HttpStatus.OK);
     }
 
     @GetMapping(path = "/porCodigo/{codigo}")
     public ResponseEntity<?> buscarUsuarioPorCodigo(@PathVariable Long codigo){
-        return new ResponseEntity<>(converterEmUsuarioResponse(usuarioService.buscarUsuarioPorCodigo(codigo)), HttpStatus.OK);
+        return new ResponseEntity<>(converterEmResponseDTO(usuarioService.buscarUsuarioPorCodigo(codigo)), HttpStatus.OK);
     }
 
     @GetMapping(path = "/porID/{id}")
     public ResponseEntity<?> buscarUsuarioPorID(@PathVariable Long id){
-        return new ResponseEntity<>(converterEmUsuarioResponse(usuarioService.buscarUsuarioPorID(id)), HttpStatus.OK);
+        return new ResponseEntity<>(converterEmResponseDTO(usuarioService.buscarUsuarioPorID(id)), HttpStatus.OK);
     }
 
     @GetMapping("/saldo/{codigo}")
@@ -55,12 +59,12 @@ public class UsuarioController {
     @PostMapping
     public ResponseEntity<?> salvarUsuario(@RequestBody CadastroRequestDTO cadastroRequest){
         UsuarioModel usuario = modelMapper.map(cadastroRequest, UsuarioModel.class);
-        return new ResponseEntity<>(converterEmUsuarioResponse(usuarioService.salvarUsuario(usuario, cadastroRequest.getCodigoBonus(), cadastroRequest.getConfirmacao())), HttpStatus.CREATED);
+        return new ResponseEntity<>(converterEmResponseDTO(usuarioService.salvarUsuario(usuario, cadastroRequest.getCodigoBonus(), cadastroRequest.getConfirmacao())), HttpStatus.CREATED);
     }
 
     @PostMapping(path = "/login")
     public ResponseEntity<?> fazerLogin(@RequestBody LoginRequestDTO loginRequest){
-        return new ResponseEntity<>(converterEmUsuarioResponse(usuarioService.fazerLogin(loginRequest)), HttpStatus.OK);
+        return new ResponseEntity<>(converterEmResponseDTO(usuarioService.fazerLogin(loginRequest)), HttpStatus.OK);
     }
 
     @PostMapping(path = "/loginAdmin")
@@ -76,7 +80,7 @@ public class UsuarioController {
     @PutMapping(path = "/alterarRole/{codigo}/{senha}")
     public ResponseEntity<?> alterarRoleUsuario(@PathVariable Long codigo,
                                                 @PathVariable String senha){
-        return new ResponseEntity<>(converterEmUsuarioResponse(usuarioService.alterarRoleUsuario(codigo, senha)), HttpStatus.OK);
+        return new ResponseEntity<>(converterEmResponseDTO(usuarioService.alterarRoleUsuario(codigo, senha)), HttpStatus.OK);
     }
 
     @PutMapping(path = "/alterarSenha")
@@ -92,15 +96,42 @@ public class UsuarioController {
 
 
     //Metódos privados
-    private UsuarioResponseDTO converterEmUsuarioResponse(UsuarioModel usuario){
+    private UsuarioResponseDTO converterEmResponseDTO(UsuarioModel usuario){
         return modelMapper.map(usuario, UsuarioResponseDTO.class);
     }
 
-    private List<UsuarioResponseDTO> converterEmListaResponseUSuario(List<UsuarioModel> usuarios){
-        List<UsuarioResponseDTO> usuariosResonse = new ArrayList<>();
+    private ListUsuarioResponseDTO converterEmListResponseDTO(UsuarioModel usuario){
+        return modelMapper.map(usuario, ListUsuarioResponseDTO.class);
+    }
+
+
+    private List<ListUsuarioResponseDTO> converterEmListaDeListResponseUSuario(List<UsuarioModel> usuarios){
+        List<ListUsuarioResponseDTO> listUsuariosResonse = new ArrayList<>();
         for(UsuarioModel usuario: usuarioService.listarUsuarios()){
-            usuariosResonse.add(modelMapper.map(usuario, UsuarioResponseDTO.class));
+            listUsuariosResonse.add(converterEmListResponseDTO(usuario));
         }
-        return  usuariosResonse;
+        return listUsuariosResonse;
+    }
+
+    public Page<ListUsuarioResponseDTO> converterEmListaPaginadaDeResponseDTO(List<UsuarioModel> usuarios, Pageable pageable) {
+        List<ListUsuarioResponseDTO> listUsuarioResponseDTO = converterEmListaDeListResponseUSuario(usuarios);
+
+        int comeco = (int) pageable.getOffset();
+        int fim = Math.min((comeco + pageable.getPageSize()), usuarios.size());
+
+        if(comeco > fim){
+            comeco = 0;
+            fim = 0;
+        }
+
+
+        Page<ListUsuarioResponseDTO> pageListUsuariosResponseDTO
+            = new PageImpl<>(
+            listUsuarioResponseDTO.subList(comeco, fim),
+            pageable,
+            listUsuarioResponseDTO.size()
+        );
+
+        return pageListUsuariosResponseDTO;
     }
 }
